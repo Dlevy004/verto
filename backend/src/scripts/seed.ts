@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import { clearDemoData } from './clear-demo';
 import { uuidv5 } from './data/ids';
 import { COMPANIES, DEVELOPERS, TEMPLATES, ModuleKind } from './data/templates';
+import { PASSAGES } from './data/passages';
 
 faker.seed(42);
 
@@ -35,6 +36,7 @@ async function main() {
     }
 
     const usedEmails = new Set<string>();
+    let passageSeq = 0;
 
     for (let i = 0; i < COMPANIES.length; i++) {
       const [company, short] = COMPANIES[i];
@@ -106,13 +108,37 @@ async function main() {
           [moduleIds.get(from), moduleIds.get(to)],
         );
       }
+
+            // szerződés és passzusai
+      const contractId = uuidv5(`contract:${slug}`);
+      const signedAt = faker.date
+        .between({ from: '2025-06-01', to: '2026-06-30' })
+        .toISOString()
+        .slice(0, 10);
+      await client.query(
+        `INSERT INTO contract (id, project_id, title, signed_at) VALUES ($1, $2, $3, $4)`,
+        [contractId, projectId, `${company} – Development Services Agreement`, signedAt],
+      );
+      for (const p of PASSAGES[tpl.key]) {
+        passageSeq++;
+        const text = p.text
+          .replaceAll('{client}', short)
+          .replace(/\{(\d+)-(\d+)\}/g, (_, a: string, b: string) =>
+            String(faker.number.int({ min: Number(a), max: Number(b) })),
+          );
+        await client.query(
+          `INSERT INTO contract_passage (id, contract_id, category, kind, text)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [`cp-${String(passageSeq).padStart(4, '0')}`, contractId, p.category, p.kind, text],
+        );
+      }
     }
 
     await client.query('COMMIT');
 
     const counts: Record<string, number> = {};
     for (const t of [
-      'app_user', 'project', 'project_member', 'retainer_budget', 'module', 'module_dependency',
+      'app_user', 'project', 'project_member', 'retainer_budget', 'module', 'module_dependency', 'contract', 'contract_passage'
     ]) {
       const r = await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM ${t}`);
       counts[t] = r.rows[0].n;
