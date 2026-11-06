@@ -1,12 +1,14 @@
 import { Controller, Get } from '@nestjs/common';
 import { MongoService } from './mongo/mongo.service';
 import { PostgresService } from './postgres/postgres.service';
+import { RedisService } from './redis/redis.service';
 
 @Controller('health')
 export class HealthController {
   constructor(
     private readonly pg: PostgresService,
     private readonly mongo: MongoService,
+    private readonly redis: RedisService,
   ) {}
 
   @Get('postgres')
@@ -22,5 +24,14 @@ export class HealthController {
     await this.mongo.db.command({ ping: 1 });
     const collections = await this.mongo.db.listCollections().toArray();
     return { ok: true, collections: collections.map((c) => c.name) };
+  }
+
+  @Get('redis')
+  async redisHealth() {
+    const pong = await this.redis.client.ping();
+    await this.redis.client.set('health:test', 'ok', 'EX', 10);
+    const value = await this.redis.client.get('health:test');
+    const ttl = await this.redis.client.ttl('health:test');
+    return { ok: true, ping: pong, roundtrip: value, ttl };
   }
 }
