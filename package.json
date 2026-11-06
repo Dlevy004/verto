@@ -5,10 +5,8 @@
   "main": "index.js",
   "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev:backend": "pnpm --filter backend start:dev",
-    "dev:frontend": "pnpm --filter frontend dev",
-    "db:ping": "pnpm --filter backend db:ping"
+    "test": "pnpm --filter backend test",
+    "dev:backend": "pnpm --filter backend start:dev"
   },
   "keywords": [],
   "author": "",
