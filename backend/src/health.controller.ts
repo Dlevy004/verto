@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { GraphService } from './graph/graph.service';
 import { MongoService } from './mongo/mongo.service';
 import { PostgresService } from './postgres/postgres.service';
 import { RedisService } from './redis/redis.service';
@@ -9,6 +10,7 @@ export class HealthController {
     private readonly pg: PostgresService,
     private readonly mongo: MongoService,
     private readonly redis: RedisService,
+    private readonly graph: GraphService,
   ) {}
 
   @Get('postgres')
@@ -33,5 +35,14 @@ export class HealthController {
     const value = await this.redis.client.get('health:test');
     const ttl = await this.redis.client.ttl('health:test');
     return { ok: true, ping: pong, roundtrip: value, ttl };
+  }
+
+  @Get('neo4j')
+  async neo4jHealth() {
+    const r = await this.graph.run(
+      'CALL dbms.components() YIELD name, versions RETURN name, versions[0] AS version',
+    );
+    const row = r.records[0];
+    return { ok: true, name: row.get('name'), version: row.get('version') };
   }
 }
