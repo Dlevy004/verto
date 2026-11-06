@@ -7,6 +7,7 @@ import { PostgresModule } from './postgres/postgres.module';
 import { MongoModule } from './mongo/mongo.modules';
 import { RedisModule } from './redis/redis.module';
 import { GraphModule } from './graph/graph.modul';
+import { QdrantModule } from './qdrant/qdrant.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { GraphModule } from './graph/graph.modul';
     MongoModule,
     RedisModule,
     GraphModule,
+    QdrantModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService],
