@@ -10,7 +10,9 @@
     "db:up": "docker compose up -d",
     "db:stop": "docker compose stop",
     "db:reset": "node scripts/db-reset.mjs",
-    "dev": "pnpm db:up && pnpm dev:backend"
+    "dev": "pnpm db:up && pnpm dev:backend",
+    "seed": "pnpm --filter backend seed",
+    "seed:clear": "pnpm --filter backend seed:clear"
   },
   "keywords": [],
   "author": "",

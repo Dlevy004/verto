@@ -3,3 +3,4 @@ packages:
   - frontend
 allowBuilds:
   '@parcel/watcher': true
+  esbuild: set this to true or false
