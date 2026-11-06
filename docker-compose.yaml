@@ -30,7 +30,19 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       retries: 20
+  neo4j:
+    image: neo4j:5.26
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
+    ports: ["7474:7474", "7687:7687"]
+    volumes:
+      - neo4jdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p ${NEO4J_PASSWORD} 'RETURN 1'"]
+      interval: 10s
+      retries: 20
 
 volumes:
   pgdata:
   mongodata:
+  neo4jdata:
