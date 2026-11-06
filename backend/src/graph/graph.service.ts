@@ -1,9 +1,16 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import neo4j, { Driver, QueryResult } from 'neo4j-driver';
 
+const SCHEMA_STATEMENTS = [
+  'CREATE CONSTRAINT module_id IF NOT EXISTS FOR (m:Module) REQUIRE m.id IS UNIQUE',
+  'CREATE CONSTRAINT request_id IF NOT EXISTS FOR (r:Request) REQUIRE r.id IS UNIQUE',
+  'CREATE INDEX module_project IF NOT EXISTS FOR (m:Module) ON (m.project_id)',
+];
+
 @Injectable()
-export class GraphService implements OnModuleDestroy {
+export class GraphService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(GraphService.name);
   private readonly driver: Driver;
 
   constructor(config: ConfigService) {
@@ -14,6 +21,17 @@ export class GraphService implements OnModuleDestroy {
         config.getOrThrow<string>('NEO4J_PASSWORD'),
       ),
     );
+  }
+
+  async onModuleInit() {
+    try {
+      for (const statement of SCHEMA_STATEMENTS) {
+        await this.run(statement);
+      }
+      this.logger.log('Neo4j constraints and indexes are in place');
+    } catch (e) {
+      this.logger.error(`Neo4j schema setup failed: ${(e as Error).message}`);
+    }
   }
 
   async run(
