@@ -13,6 +13,17 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       retries: 20
+  mongo:
+    image: mongo:7.0
+    ports: ["27017:27017"]
+    volumes:
+      - mongodata:/data/db
+      - ./db/mongo/init.js:/docker-entrypoint-initdb.d/01_init.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      retries: 20
 
 volumes:
   pgdata:
+  mongodata:
