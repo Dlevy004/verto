@@ -6,7 +6,10 @@
   "private": true,
   "scripts": {
     "test": "pnpm --filter backend test",
-    "dev:backend": "pnpm --filter backend start:dev"
+    "dev:backend": "pnpm --filter backend start:dev",
+    "db:up": "docker compose up -d",
+    "db:stop": "docker compose stop",
+    "dev": "pnpm db:up && pnpm dev:backend"
   },
   "keywords": [],
   "author": "",
