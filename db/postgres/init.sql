@@ -13,6 +13,7 @@ CREATE TABLE app_user (
   email       TEXT NOT NULL UNIQUE,
   full_name   TEXT,
   global_role TEXT NOT NULL CHECK (global_role IN ('DEVELOPER','CLIENT')),
+  is_demo     BOOLEAN NOT NULL DEFAULT false,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -22,6 +23,7 @@ CREATE TABLE project (
   description TEXT,
   invite_code TEXT NOT NULL UNIQUE,                  -- pl. 'VT-842-K9X'
   owner_id    UUID NOT NULL REFERENCES app_user(id),
+  is_demo     BOOLEAN NOT NULL DEFAULT false,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
