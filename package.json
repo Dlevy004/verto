@@ -9,6 +9,7 @@
     "dev:backend": "pnpm --filter backend start:dev",
     "db:up": "docker compose up -d",
     "db:stop": "docker compose stop",
+    "db:reset": "node scripts/db-reset.mjs",
     "dev": "pnpm db:up && pnpm dev:backend"
   },
   "keywords": [],
