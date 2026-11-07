@@ -35,7 +35,8 @@ export async function syncGraph(
   const deps = await pool.query(
     `SELECT d.from_module AS from_id, d.to_module AS to_id
      FROM module_dependency d JOIN module m ON m.id = d.from_module
-     ${scoped ? 'WHERE m.project_id = ANY($1::uuid[])' : ''}`,
+     JOIN module target ON target.id = d.to_module
+     ${scoped ? 'WHERE m.project_id = ANY($1::uuid[]) OR target.project_id = ANY($1::uuid[])' : ''}`,
     params,
   );
   const requests = await pool.query<{
