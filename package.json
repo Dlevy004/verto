@@ -6,7 +6,14 @@
   "private": true,
   "scripts": {
     "test": "pnpm --filter backend test",
-    "dev:backend": "pnpm --filter backend start:dev"
+    "dev:backend": "pnpm --filter backend start:dev",
+    "db:up": "docker compose up -d",
+    "db:stop": "docker compose stop",
+    "db:reset": "node scripts/db-reset.mjs",
+    "sync:graph": "pnpm --filter backend sync:graph",
+    "dev": "docker compose up -d --wait && pnpm dev:backend",
+    "seed": "pnpm --filter backend seed",
+    "seed:clear": "pnpm --filter backend seed:clear"
   },
   "keywords": [],
   "author": "",
