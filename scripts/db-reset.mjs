@@ -49,7 +49,7 @@ for (const service of services) {
 
 run('compose', 'up', '-d', '--wait', ...services);
 
-console.log('\nKész. A séma-szkriptek (init.sql, init.js) újra lefutottak.');
+console.log('\nKész. A kiválasztott szolgáltatások újraindultak.');
 if (services.includes('neo4j')) {
   console.log('A Neo4j megszorításait a backend indulásakor hozza létre, ezért indítsd újra a backendet.');
 }
