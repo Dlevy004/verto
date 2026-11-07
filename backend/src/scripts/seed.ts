@@ -9,6 +9,8 @@ import { REQUESTS, RequestIdea } from './data/requests';
 import { COMPANIES, DEVELOPERS, ModuleKind, TEMPLATES } from './data/templates';
 import { syncGraph } from '../graph/graph-sync';
 import { createNeo4j } from './neo4j-runner';
+import { QdrantClient } from '@qdrant/js-client-rest';
+import { QDRANT_COLLECTION, syncVectors } from '../vectors/vector-sync';
 
 faker.seed(42);
 
@@ -109,6 +111,7 @@ async function main() {
   const mongo = new MongoClient(process.env.MONGO_URL!);
   await mongo.connect();
   const neo = createNeo4j();
+  const qdrant = new QdrantClient({ url: process.env.QDRANT_URL! });
   const client = await pool.connect();
   const payloads: Document[] = [];
 
@@ -327,13 +330,16 @@ async function main() {
 
     // A Postgres a forrás: a másolatok (Mongo, Neo4j) csak a commit után változnak.
     // Ha innen bármi hibázik, a `pnpm seed` újrafuttatása helyreállítja őket.
-    const external = await clearDemoExternal(mongo.db('verto'), neo.run);
+    const external = await clearDemoExternal(mongo.db('verto'), neo.run, qdrant);
     console.log(`Előző demó törölve (másolatok): ${external.payloads} Mongo-payload`);
     await mongo.db('verto').collection('request_payloads').insertMany(payloads);
 
     // a Neo4j másolat felépítése a Postgres-adatból
     const demoProjects = await pool.query<{ id: string }>('SELECT id FROM project WHERE is_demo');
     const graph = await syncGraph(pool, neo.runTx, demoProjects.rows.map((r) => r.id));
+
+    // vektorok: ugyanazokkal a beágyazásokkal a pgvectorba és a Qdrantba
+    await syncVectors(pool, mongo.db('verto'), qdrant, demoProjects.rows.map((r) => r.id));
 
     const counts: Record<string, number> = {};
     for (const t of [
@@ -349,6 +355,12 @@ async function main() {
       .countDocuments();
     counts['neo4j: nodes'] = graph.modules + graph.requests;
     counts['neo4j: relationships'] = graph.dependsOn + graph.touches;
+
+    counts['pgvector: doc_embedding'] = (
+      await pool.query<{ n: number }>('SELECT count(*)::int AS n FROM doc_embedding')
+    ).rows[0].n;
+    counts['qdrant: points'] = (await qdrant.count(QDRANT_COLLECTION, { exact: true })).count;
+
     console.table(counts);
   } catch (e) {
     await client.query('ROLLBACK');
