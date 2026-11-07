@@ -42,9 +42,24 @@ if (!yes) {
 
 run('compose', 'rm', '-s', '-f', ...services);
 
-for (const service of services) {
-  const volume = VOLUMES[service];
-  if (volume) run('volume', 'rm', '-f', `${project}_${volume}`);
+const removed = [];
+try {
+  for (const service of services) {
+    const volume = VOLUMES[service];
+    if (volume) {
+      run('volume', 'rm', '-f', `${project}_${volume}`);
+      removed.push(`${project}_${volume}`);
+    }
+  }
+} catch (e) {
+  console.error(`\nHiba a volume törlésénél. Már törölt volume-ok: ${removed.join(', ') || 'nincs'}`);
+  console.error('Megpróbálom újraindítani a szolgáltatásokat...');
+  try {
+    run('compose', 'up', '-d', ...services);
+  } catch {
+    console.error('Az újraindítás sem sikerült, futtasd kézzel: docker compose up -d');
+  }
+  process.exit(1);
 }
 
 run('compose', 'up', '-d', '--wait', ...services);

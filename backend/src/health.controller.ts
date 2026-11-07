@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { GraphService } from './graph/graph.service';
 import { MongoService } from './mongo/mongo.service';
 import { PostgresService } from './postgres/postgres.service';
@@ -20,7 +20,11 @@ export class HealthController {
     const r = await this.pg.query<{ extversion: string }>(
       "SELECT extversion FROM pg_extension WHERE extname = 'vector'",
     );
-    return { ok: true, pgvector: r.rows[0]?.extversion ?? null };
+    const version = r.rows[0]?.extversion;
+    if (!version) {
+      throw new ServiceUnavailableException('pgvector extension is missing');
+    }
+    return { ok: true, pgvector: version };
   }
 
   @Get('mongo')

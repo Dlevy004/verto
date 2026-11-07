@@ -1,6 +1,6 @@
 import { MongoClient } from 'mongodb';
 import { Pool } from 'pg';
-import { clearDemoData } from './clear-demo';
+import { clearDemoExternal, clearDemoPostgres } from './clear-demo';
 import { createNeo4j } from './neo4j-runner';
 
 async function main() {
@@ -11,13 +11,15 @@ async function main() {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const r = await clearDemoData(client, mongo.db('verto'), neo.run);
+    const pg = await clearDemoPostgres(client);
     await client.query('COMMIT');
+
+    const ext = await clearDemoExternal(mongo.db('verto'), neo.run);
     console.log(
-      `Törölve: ${r.projects} demó projekt, ${r.users} demó felhasználó, ${r.payloads} Mongo-payload, a demó Neo4j-csúcsok (és minden hozzájuk tartozó Postgres-adat).`,
+      `Törölve: ${pg.projects} demó projekt, ${pg.users} demó felhasználó, ${ext.payloads} Mongo-payload, a demó Neo4j-csúcsok (és minden hozzájuk tartozó Postgres-adat).`,
     );
   } catch (e) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => undefined);
     throw e;
   } finally {
     client.release();

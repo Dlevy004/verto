@@ -1,15 +1,19 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 
 @Injectable()
 export class PostgresService implements OnModuleDestroy {
   private readonly pool: Pool;
+  private readonly logger = new Logger(PostgresService.name);
 
   constructor(config: ConfigService) {
     this.pool = new Pool({
       connectionString: config.getOrThrow<string>('POSTGRES_URL'),
     });
+    this.pool.on('error', (e) =>
+        this.logger.error(`Idle Postgres client error: ${e.message}`),
+    );
   }
 
   query<T extends QueryResultRow = QueryResultRow>(

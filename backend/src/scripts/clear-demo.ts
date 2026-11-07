@@ -2,7 +2,8 @@ import { Db } from 'mongodb';
 import { PoolClient } from 'pg';
 import { CypherRunner } from '../graph/graph-sync';
 
-export async function clearDemoData(client: PoolClient, mongo: Db, run: CypherRunner) {
+/** A Postgres-rész (a forrás). Tranzakción belül hívandó. */
+export async function clearDemoPostgres(client: PoolClient) {
   // A kéréseket előre töröljük: a request_module.module_id és az hours_reservation.budget_id
   // külső kulcsai NO ACTION típusúak, ezért a projekt-kaszkád módosítás nélkül ütközne.
   await client.query(
@@ -17,15 +18,13 @@ export async function clearDemoData(client: PoolClient, mongo: Db, run: CypherRu
     await client.query('ALTER TABLE change_request ALTER COLUMN seq RESTART WITH 1');
   }
 
-  // A többi tár a Postgres után jön: ha a fenti hibázik, azok érintetlenek maradnak.
-  // A dokumentumokat és csúcsokat a saját jelölőjük alapján töröljük.
+  return { projects: projects.rowCount ?? 0, users: users.rowCount ?? 0 };
+}
+
+/** A másolatok (Mongo, Neo4j). Csak a Postgres commit UTÁN hívandó. */
+export async function clearDemoExternal(mongo: Db, run: CypherRunner) {
   const payloads = await mongo.collection('request_payloads').deleteMany({ is_demo: true });
   await run('MATCH (n) WHERE n.is_demo = true DETACH DELETE n');
   // TODO (a további tárak seedelésekor): Qdrant, Redis, ugyanígy jelölő alapján
-
-  return {
-    projects: projects.rowCount ?? 0,
-    users: users.rowCount ?? 0,
-    payloads: payloads.deletedCount,
-  };
+  return { payloads: payloads.deletedCount };
 }

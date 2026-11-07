@@ -24,14 +24,10 @@ export class GraphService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
-    try {
-      for (const statement of SCHEMA_STATEMENTS) {
-        await this.run(statement);
-      }
-      this.logger.log('Neo4j constraints and indexes are in place');
-    } catch (e) {
-      this.logger.error(`Neo4j schema setup failed: ${(e as Error).message}`);
+    for (const statement of SCHEMA_STATEMENTS) {
+      await this.run(statement);
     }
+    this.logger.log('Neo4j constraints and indexes are in place');
   }
 
   async run(

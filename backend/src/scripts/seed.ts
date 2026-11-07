@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { faker } from '@faker-js/faker';
 import { Document, MongoClient, ObjectId } from 'mongodb';
 import { Pool } from 'pg';
-import { clearDemoData } from './clear-demo';
+import { clearDemoExternal, clearDemoPostgres } from './clear-demo';
 import { uuidv5 } from './data/ids';
 import { PASSAGES } from './data/passages';
 import { REQUESTS, RequestIdea } from './data/requests';
@@ -115,9 +115,9 @@ async function main() {
   try {
     await client.query('BEGIN');
 
-    const cleared = await clearDemoData(client, mongo.db('verto'), neo.run);
+    const cleared = await clearDemoPostgres(client);
     console.log(
-      `Előző demó törölve: ${cleared.projects} projekt, ${cleared.users} felhasználó, ${cleared.payloads} Mongo-payload`,
+      `Előző demó törölve (Postgres): ${cleared.projects} projekt, ${cleared.users} felhasználó`,
     );
 
     // fejlesztők
@@ -238,7 +238,7 @@ async function main() {
         await client.query(
           `INSERT INTO contract_passage (id, contract_id, category, kind, text)
            VALUES ($1, $2, $3, $4, $5)`,
-          [`cp-${String(passageSeq).padStart(4, '0')}`, contractId, p.category, p.kind, text],
+           [`dcp-${String(passageSeq).padStart(4, '0')}`, contractId, p.category, p.kind, text],
         );
       }
 
@@ -325,12 +325,15 @@ async function main() {
 
     await client.query('COMMIT');
 
-    // a Mongo-dokumentumok a Postgres commit után kerülnek be (a hibás futás a következő seed-del javul)
+    // A Postgres a forrás: a másolatok (Mongo, Neo4j) csak a commit után változnak.
+    // Ha innen bármi hibázik, a `pnpm seed` újrafuttatása helyreállítja őket.
+    const external = await clearDemoExternal(mongo.db('verto'), neo.run);
+    console.log(`Előző demó törölve (másolatok): ${external.payloads} Mongo-payload`);
     await mongo.db('verto').collection('request_payloads').insertMany(payloads);
 
     // a Neo4j másolat felépítése a Postgres-adatból
     const demoProjects = await pool.query<{ id: string }>('SELECT id FROM project WHERE is_demo');
-    const graph = await syncGraph(pool, neo.run, demoProjects.rows.map((r) => r.id));
+    const graph = await syncGraph(pool, neo.runTx, demoProjects.rows.map((r) => r.id));
 
     const counts: Record<string, number> = {};
     for (const t of [
