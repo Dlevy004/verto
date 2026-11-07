@@ -3,7 +3,7 @@ import { faker } from '@faker-js/faker';
 import { Document, MongoClient, ObjectId } from 'mongodb';
 import { Pool } from 'pg';
 import { clearDemoExternal, clearDemoPostgres } from './clear-demo';
-import { uuidv5 } from './data/ids';
+import { uuidv5 } from '../common/ids';
 import { PASSAGES } from './data/passages';
 import { REQUESTS, RequestIdea } from './data/requests';
 import { COMPANIES, DEVELOPERS, ModuleKind, TEMPLATES } from './data/templates';
