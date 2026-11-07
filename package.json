@@ -11,7 +11,7 @@
     "db:stop": "docker compose stop",
     "db:reset": "node scripts/db-reset.mjs",
     "sync:graph": "pnpm --filter backend sync:graph",
-    "dev": "pnpm db:up && pnpm dev:backend",
+    "dev": "docker compose up -d --wait && pnpm dev:backend",
     "seed": "pnpm --filter backend seed",
     "seed:clear": "pnpm --filter backend seed:clear"
   },
