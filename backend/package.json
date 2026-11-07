@@ -16,6 +16,9 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+    "embed:smoke": "tsx --env-file=../.env src/scripts/embed-smoke.ts",
+    "embed": "tsx --env-file=../.env src/scripts/embed-all.ts",
+    "vector:smoke": "tsx --env-file=../.env src/scripts/vector-smoke.ts",
     "lint": "oxlint --type-aware src/ test/",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch",
@@ -24,6 +27,7 @@
     "test:e2e": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.2",
     "@nestjs/common": "^12.0.1",
     "@nestjs/config": "^12.1.0",
     "@nestjs/core": "^12.0.1",

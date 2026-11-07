@@ -13,7 +13,9 @@
     "sync:graph": "pnpm --filter backend sync:graph",
     "dev": "docker compose up -d --wait && pnpm dev:backend",
     "seed": "pnpm --filter backend seed",
-    "seed:clear": "pnpm --filter backend seed:clear"
+    "seed:clear": "pnpm --filter backend seed:clear",
+    "embed": "pnpm --filter backend embed",
+    "vector:smoke": "pnpm --filter backend vector:smoke"
   },
   "keywords": [],
   "author": "",
