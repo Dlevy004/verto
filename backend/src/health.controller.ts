@@ -5,9 +5,17 @@ import { PostgresService } from './postgres/postgres.service';
 import { QdrantService } from './qdrant/qdrant.service';
 import { RedisService } from './redis/redis.service';
 
+/**
+ * Diagnostic health-check controller exposing per-datastore readiness endpoints
+ * under `/health/*` (Postgres, MongoDB, Redis, Neo4j, Qdrant).
+ *
+ * Registered in `AppModule` and consumes all five global database services via
+ * constructor dependency injection.
+ */
 @Controller('health')
 export class HealthController {
   constructor(
+    // inject all five global database dependencies/services for health checks
     private readonly pg: PostgresService,
     private readonly mongo: MongoService,
     private readonly redis: RedisService,
@@ -15,6 +23,15 @@ export class HealthController {
     private readonly qdrant: QdrantService,
   ) {}
 
+  /**
+   * `GET /health/postgres`
+   *
+   * Verifies live PostgreSQL connectivity via `PostgresService.query` and checks
+   * the `pg_extension` system catalog to ensure the `pgvector` (`vector`) extension
+   * initialized by `db/postgres/init.sql` is installed and active.
+   *
+   * @throws {ServiceUnavailableException} HTTP 503 if the `vector` extension is missing.
+   */
   @Get('postgres')
   async postgres() {
     const r = await this.pg.query<{ extversion: string }>(
