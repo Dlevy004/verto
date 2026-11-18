@@ -75,6 +75,13 @@ export class HealthController {
     return { ok: true, ping: pong, roundtrip: value, ttl };
   }
 
+  /**
+   * `GET /health/neo4j`
+   *
+   * Verifies live Neo4j Bolt connectivity by querying `dbms.components()` for the
+   * running server name and version, and runs `SHOW CONSTRAINTS` to confirm that
+   * `GraphService.onModuleInit()` applied the required uniqueness constraints.
+   */
   @Get('neo4j')
   async neo4jHealth() {
     const r = await this.graph.run(
