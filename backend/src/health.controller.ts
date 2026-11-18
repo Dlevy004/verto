@@ -58,11 +58,19 @@ export class HealthController {
     return { ok: true, collections: collections.map((c) => c.name) };
   }
 
+  /**
+   * `GET /health/redis`
+   *
+   * Verifies live Redis connectivity via `PING`, performs a read/write round-trip
+   * using a transient `health:test` key with a 10-second TTL (`EX 10`), and returns
+   * the remaining TTL to confirm automatic key expiration works as expected.
+   */
   @Get('redis')
   async redisHealth() {
     const pong = await this.redis.client.ping();
     await this.redis.client.set('health:test', 'ok', 'EX', 10);
     const value = await this.redis.client.get('health:test');
+    // time to live (TTL)
     const ttl = await this.redis.client.ttl('health:test');
     return { ok: true, ping: pong, roundtrip: value, ttl };
   }
