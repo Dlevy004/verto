@@ -44,6 +44,13 @@ export class HealthController {
     return { ok: true, pgvector: version };
   }
 
+  /**
+   * `GET /health/mongo`
+   *
+   * Verifies live MongoDB connectivity by sending a `ping` command to the
+   * `'verto'` database via `MongoService.db` and lists all existing collections
+   * to confirm whether `db/mongo/init.js` has initialized `request_payloads`.
+   */
   @Get('mongo')
   async mongoHealth() {
     await this.mongo.db.command({ ping: 1 });
