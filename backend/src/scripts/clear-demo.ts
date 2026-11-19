@@ -15,17 +15,27 @@ export async function clearDemoPostgres(client: PoolClient) {
   const users = await client.query('DELETE FROM app_user WHERE is_demo');
 
   // ha nem maradt valódi kérés, a #VR sorszámok újra 1-ről indulnak
-  const left = await client.query<{ n: number }>('SELECT count(*)::int AS n FROM change_request');
+  const left = await client.query<{ n: number }>(
+    'SELECT count(*)::int AS n FROM change_request',
+  );
   if (left.rows[0].n === 0) {
-    await client.query('ALTER TABLE change_request ALTER COLUMN seq RESTART WITH 1');
+    await client.query(
+      'ALTER TABLE change_request ALTER COLUMN seq RESTART WITH 1',
+    );
   }
 
   return { projects: projects.rowCount ?? 0, users: users.rowCount ?? 0 };
 }
 
 /** A másolatok (Mongo, Neo4j, Qdrant). Csak a Postgres commit UTÁN hívandó. */
-export async function clearDemoExternal(mongo: Db, run: CypherRunner, qdrant: QdrantClient) {
-  const payloads = await mongo.collection('request_payloads').deleteMany({ is_demo: true });
+export async function clearDemoExternal(
+  mongo: Db,
+  run: CypherRunner,
+  qdrant: QdrantClient,
+) {
+  const payloads = await mongo
+    .collection('request_payloads')
+    .deleteMany({ is_demo: true });
   await run('MATCH (n) WHERE n.is_demo = true DETACH DELETE n');
 
   // a pgvector-sorok a projekt törlésekor kaszkáddal törlődtek, a Qdrantban jelölő alapján törlünk

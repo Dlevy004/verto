@@ -27,7 +27,10 @@ function getExtractor(): Promise<Extractor> {
 }
 
 /** Szövegek beágyazása: mean pooling, L2-normalizálva, 384 dimenziós vektorok. */
-export async function embed(texts: string[], batchSize = 32): Promise<number[][]> {
+export async function embed(
+  texts: string[],
+  batchSize = 32,
+): Promise<number[][]> {
   const extractor = await getExtractor();
   const out: number[][] = [];
   for (let i = 0; i < texts.length; i += batchSize) {

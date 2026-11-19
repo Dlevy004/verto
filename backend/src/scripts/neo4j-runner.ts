@@ -1,7 +1,11 @@
 import neo4j, { Driver } from 'neo4j-driver';
 import { CypherRunner, CypherTransaction } from '../graph/graph-sync';
 
-export function createNeo4j(): { driver: Driver; run: CypherRunner; runTx: CypherTransaction } {
+export function createNeo4j(): {
+  driver: Driver;
+  run: CypherRunner;
+  runTx: CypherTransaction;
+} {
   const driver = neo4j.driver(
     process.env.NEO4J_URL!,
     neo4j.auth.basic(process.env.NEO4J_USER!, process.env.NEO4J_PASSWORD!),

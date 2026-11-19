@@ -11,7 +11,12 @@ async function main() {
   try {
     const projects = await pool.query<{ id: string }>('SELECT id FROM project');
     console.time('embed');
-    const result = await syncVectors(pool, mongo.db('verto'), qdrant, projects.rows.map((r) => r.id));
+    const result = await syncVectors(
+      pool,
+      mongo.db('verto'),
+      qdrant,
+      projects.rows.map((r) => r.id),
+    );
     console.timeEnd('embed');
     console.table(result);
   } finally {

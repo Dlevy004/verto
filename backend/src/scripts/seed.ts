@@ -18,7 +18,9 @@ const DAY = 24 * 60 * 60 * 1000;
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
 const now = new Date();
 const monthStart = (offset: number) =>
-  new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1)).toISOString().slice(0, 10);
+  new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1))
+    .toISOString()
+    .slice(0, 10);
 const daysAgo = (n: number) => new Date(Date.now() - n * DAY);
 
 // a cég nevét minden szövegbe beleírjuk (ha nincs benne), hogy a projektek szövegei ne legyenek azonosak
@@ -28,7 +30,13 @@ const withClient = (text: string, short: string) => {
 };
 
 const BROWSERS = ['Chrome 130', 'Safari 17', 'Firefox 132', 'Edge 130'];
-const SYSTEMS = ['Windows 11', 'macOS Sonoma', 'Ubuntu 24.04', 'iOS 18', 'Android 15'];
+const SYSTEMS = [
+  'Windows 11',
+  'macOS Sonoma',
+  'Ubuntu 24.04',
+  'iOS 18',
+  'Android 15',
+];
 const VIEWPORTS = ['1440x900', '1920x1080', '390x844', '768x1024'];
 const CRITERIA_POOL = [
   'Works on desktop and mobile browsers',
@@ -40,7 +48,8 @@ const CRITERIA_POOL = [
 function priorityFor(idea: RequestIdea): string {
   if (idea.severity === 'CRITICAL') return 'CRITICAL';
   if (idea.severity === 'MAJOR') return 'HIGH';
-  if (idea.severity === 'MINOR') return faker.helpers.arrayElement(['LOW', 'MEDIUM']);
+  if (idea.severity === 'MINOR')
+    return faker.helpers.arrayElement(['LOW', 'MEDIUM']);
   return faker.helpers.weightedArrayElement([
     { weight: 20, value: 'LOW' },
     { weight: 45, value: 'MEDIUM' },
@@ -77,7 +86,10 @@ function buildFields(idea: RequestIdea, slug: string): Document {
       return {
         acceptance_criteria: [
           `${idea.title} works as described in the request`,
-          ...faker.helpers.arrayElements(CRITERIA_POOL, faker.number.int({ min: 1, max: 3 })),
+          ...faker.helpers.arrayElements(
+            CRITERIA_POOL,
+            faker.number.int({ min: 1, max: 3 }),
+          ),
         ],
         affected_areas: idea.modules,
       };
@@ -96,11 +108,16 @@ function buildFields(idea: RequestIdea, slug: string): Document {
       return {
         screens: idea.screens!,
         ...(faker.datatype.boolean()
-          ? { design_link: `https://design.example/${slug}/${slugify(idea.title)}` }
+          ? {
+              design_link: `https://design.example/${slug}/${slugify(idea.title)}`,
+            }
           : {}),
       };
     case 'CONTENT':
-      return { pages: idea.pages!, word_count: faker.number.int({ min: 80, max: 1200 }) };
+      return {
+        pages: idea.pages!,
+        word_count: faker.number.int({ min: 80, max: 1200 }),
+      };
     case 'TECHNICAL':
       return { component: idea.component!, change_kind: idea.changeKind! };
   }
@@ -135,7 +152,9 @@ async function main() {
       );
     }
     if (devIds.length < 4) {
-      throw new Error('A DEVELOPERS listában legalább 4 fejlesztő kell (templates.ts)');
+      throw new Error(
+        'A DEVELOPERS listában legalább 4 fejlesztő kell (templates.ts)',
+      );
     }
 
     const usedEmails = new Set<string>();
@@ -152,17 +171,31 @@ async function main() {
       await client.query(
         `INSERT INTO project (id, name, description, invite_code, owner_id, is_demo)
          VALUES ($1, $2, $3, $4, $5, true)`,
-        [projectId, `${short} ${tpl.title}`, tpl.description, inviteCode, devIds[0]],
+        [
+          projectId,
+          `${short} ${tpl.title}`,
+          tpl.description,
+          inviteCode,
+          devIds[0],
+        ],
       );
 
       // tagok: Levy a tulajdonos, két másik fejlesztő, két ügyfél
-      const addMember = (userId: string, role: string, displayName: string | null) =>
+      const addMember = (
+        userId: string,
+        role: string,
+        displayName: string | null,
+      ) =>
         client.query(
           `INSERT INTO project_member (project_id, user_id, role, display_name)
            VALUES ($1, $2, $3, $4)`,
           [projectId, userId, role, displayName],
         );
-      const projectDevIds = [devIds[0], devIds[1 + (i % 3)], devIds[1 + ((i + 1) % 3)]];
+      const projectDevIds = [
+        devIds[0],
+        devIds[1 + (i % 3)],
+        devIds[1 + ((i + 1) % 3)],
+      ];
       await addMember(projectDevIds[0], 'OWNER', null);
       await addMember(projectDevIds[1], 'DEVELOPER', null);
       await addMember(projectDevIds[2], 'DEVELOPER', null);
@@ -171,7 +204,9 @@ async function main() {
       for (let c = 0; c < 2; c++) {
         const first = faker.person.firstName();
         const last = faker.person.lastName();
-        let email = `${first}.${last}@${domain}`.toLowerCase().replace(/[^a-z0-9.@]/g, '');
+        let email = `${first}.${last}@${domain}`
+          .toLowerCase()
+          .replace(/[^a-z0-9.@]/g, '');
         if (usedEmails.has(email)) email = email.replace('@', `${c + 1}@`);
         usedEmails.add(email);
         const userId = uuidv5(`user:${email}`);
@@ -187,19 +222,29 @@ async function main() {
       // óra-keret: az aktuális és az előző két hónap
       const total = faker.helpers.arrayElement([20, 30, 40]);
       for (let m = 0; m < 3; m++) {
-        const used = faker.number.int({ min: 0, max: Math.floor(total * 0.85 * 2) }) / 2;
+        const used =
+          faker.number.int({ min: 0, max: Math.floor(total * 0.85 * 2) }) / 2;
         const period = monthStart(m);
         await client.query(
           `INSERT INTO retainer_budget (id, project_id, period, total_hours, remaining_hours)
            VALUES ($1, $2, $3, $4, $5)`,
-          [uuidv5(`budget:${slug}:${period}`), projectId, period, total, total - used],
+          [
+            uuidv5(`budget:${slug}:${period}`),
+            projectId,
+            period,
+            total,
+            total - used,
+          ],
         );
       }
 
       // modulok és függőségek a sablonból
       const moduleIds = new Map<string, string>();
       const frozenByName = new Map<string, boolean>();
-      for (const [kind, names] of Object.entries(tpl.modules) as [ModuleKind, string[]][]) {
+      for (const [kind, names] of Object.entries(tpl.modules) as [
+        ModuleKind,
+        string[],
+      ][]) {
         for (const name of names) {
           const id = uuidv5(`module:${slug}:${name}`);
           const frozen = faker.datatype.boolean({ probability: 0.1 });
@@ -228,7 +273,12 @@ async function main() {
         .slice(0, 10);
       await client.query(
         `INSERT INTO contract (id, project_id, title, signed_at) VALUES ($1, $2, $3, $4)`,
-        [contractId, projectId, `${company} – Development Services Agreement`, signedAt],
+        [
+          contractId,
+          projectId,
+          `${company} – Development Services Agreement`,
+          signedAt,
+        ],
       );
       for (const p of PASSAGES[tpl.key]) {
         passageSeq++;
@@ -241,7 +291,13 @@ async function main() {
         await client.query(
           `INSERT INTO contract_passage (id, contract_id, category, kind, text)
            VALUES ($1, $2, $3, $4, $5)`,
-           [`dcp-${String(passageSeq).padStart(4, '0')}`, contractId, p.category, p.kind, text],
+          [
+            `dcp-${String(passageSeq).padStart(4, '0')}`,
+            contractId,
+            p.category,
+            p.kind,
+            text,
+          ],
         );
       }
 
@@ -252,32 +308,49 @@ async function main() {
       for (let r = 0; r < ideas.length; r++) {
         const idea = ideas[r];
         const requestId = uuidv5(`request:${slug}:${r}`);
-        const payloadHex = createHash('sha1').update(`payload:${slug}:${r}`).digest('hex').slice(0, 24);
+        const payloadHex = createHash('sha1')
+          .update(`payload:${slug}:${r}`)
+          .digest('hex')
+          .slice(0, 24);
 
         // ha egy érintett modul befagyasztott, a sima "rendben" döntésből egyeztetés lesz
         let verdict: string = idea.verdict;
         let reason = idea.reason;
-        if (reason === 'IN_SCOPE_OK' && idea.modules.some((m) => frozenByName.get(m))) {
+        if (
+          reason === 'IN_SCOPE_OK' &&
+          idea.modules.some((m) => frozenByName.get(m))
+        ) {
           verdict = 'REQUIRES_ALIGNMENT';
           reason = 'FROZEN_MODULES';
         }
 
-        const pending = verdict !== 'REJECTED' && faker.datatype.boolean({ probability: 0.12 });
+        const pending =
+          verdict !== 'REJECTED' &&
+          faker.datatype.boolean({ probability: 0.12 });
         const status = pickStatus(verdict, pending);
 
         let ago = faker.number.int({ min: 3, max: 45 });
-        if (status === 'COMPLETED') ago = faker.number.int({ min: 60, max: 170 });
+        if (status === 'COMPLETED')
+          ago = faker.number.int({ min: 60, max: 170 });
         if (pending) ago = faker.number.int({ min: 0, max: 6 });
         if (idea.duplicateOf !== undefined) {
-          ago = Math.max(1, createdAgo[idea.duplicateOf] - faker.number.int({ min: 2, max: 10 }));
+          ago = Math.max(
+            1,
+            createdAgo[idea.duplicateOf] -
+              faker.number.int({ min: 2, max: 10 }),
+          );
         }
         createdAgo.push(ago);
         const createdAt = daysAgo(ago);
 
-        const deadline = new Date(createdAt.getTime() + faker.number.int({ min: 14, max: 60 }) * DAY)
+        const deadline = new Date(
+          createdAt.getTime() + faker.number.int({ min: 14, max: 60 }) * DAY,
+        )
           .toISOString()
           .slice(0, 10);
-        const assigneeId = pending ? null : faker.helpers.arrayElement(projectDevIds);
+        const assigneeId = pending
+          ? null
+          : faker.helpers.arrayElement(projectDevIds);
         const submitterId = faker.helpers.arrayElement(clientIds);
 
         await client.query(
@@ -286,14 +359,27 @@ async function main() {
               status, estimated_hours, payload_id, created_at, updated_at)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)`,
           [
-            requestId, projectId, submitterId, assigneeId, idea.title, idea.type,
-            priorityFor(idea), deadline, status, pending ? null : idea.hours, payloadHex, createdAt,
+            requestId,
+            projectId,
+            submitterId,
+            assigneeId,
+            idea.title,
+            idea.type,
+            priorityFor(idea),
+            deadline,
+            status,
+            pending ? null : idea.hours,
+            payloadHex,
+            createdAt,
           ],
         );
 
         for (const moduleName of idea.modules) {
           const moduleId = moduleIds.get(moduleName);
-          if (!moduleId) throw new Error(`Ismeretlen modul a(z) ${tpl.key} sablonban: ${moduleName}`);
+          if (!moduleId)
+            throw new Error(
+              `Ismeretlen modul a(z) ${tpl.key} sablonban: ${moduleName}`,
+            );
           await client.query(
             `INSERT INTO request_module (request_id, module_id) VALUES ($1, $2)`,
             [requestId, moduleId],
@@ -305,7 +391,10 @@ async function main() {
             `INSERT INTO decision (request_id, verdict, reason_codes, signals, decided_by, created_at)
              VALUES ($1, $2, $3, $4, 'DEMO_SEED', $5)`,
             [
-              requestId, verdict, [reason], JSON.stringify({ source: 'seed' }),
+              requestId,
+              verdict,
+              [reason],
+              JSON.stringify({ source: 'seed' }),
               new Date(createdAt.getTime() + 5 * 60 * 1000),
             ],
           );
@@ -318,7 +407,12 @@ async function main() {
           project_id: projectId,
           type: idea.type,
           markdown_raw: body,
-          rich_text: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: body }] }] },
+          rich_text: {
+            type: 'doc',
+            content: [
+              { type: 'paragraph', content: [{ type: 'text', text: body }] },
+            ],
+          },
           fields: buildFields(idea, slug),
           created_at: createdAt,
           is_demo: true,
@@ -330,23 +424,51 @@ async function main() {
 
     // A Postgres a forrás: a másolatok (Mongo, Neo4j) csak a commit után változnak.
     // Ha innen bármi hibázik, a `pnpm seed` újrafuttatása helyreállítja őket.
-    const external = await clearDemoExternal(mongo.db('verto'), neo.run, qdrant);
-    console.log(`Előző demó törölve (másolatok): ${external.payloads} Mongo-payload`);
+    const external = await clearDemoExternal(
+      mongo.db('verto'),
+      neo.run,
+      qdrant,
+    );
+    console.log(
+      `Előző demó törölve (másolatok): ${external.payloads} Mongo-payload`,
+    );
     await mongo.db('verto').collection('request_payloads').insertMany(payloads);
 
     // a Neo4j másolat felépítése a Postgres-adatból
-    const demoProjects = await pool.query<{ id: string }>('SELECT id FROM project WHERE is_demo');
-    const graph = await syncGraph(pool, neo.runTx, demoProjects.rows.map((r) => r.id));
+    const demoProjects = await pool.query<{ id: string }>(
+      'SELECT id FROM project WHERE is_demo',
+    );
+    const graph = await syncGraph(
+      pool,
+      neo.runTx,
+      demoProjects.rows.map((r) => r.id),
+    );
 
     // vektorok: ugyanazokkal a beágyazásokkal a pgvectorba és a Qdrantba
-    await syncVectors(pool, mongo.db('verto'), qdrant, demoProjects.rows.map((r) => r.id));
+    await syncVectors(
+      pool,
+      mongo.db('verto'),
+      qdrant,
+      demoProjects.rows.map((r) => r.id),
+    );
 
     const counts: Record<string, number> = {};
     for (const t of [
-      'app_user', 'project', 'project_member', 'retainer_budget', 'module', 'module_dependency',
-      'contract', 'contract_passage', 'change_request', 'request_module', 'decision',
+      'app_user',
+      'project',
+      'project_member',
+      'retainer_budget',
+      'module',
+      'module_dependency',
+      'contract',
+      'contract_passage',
+      'change_request',
+      'request_module',
+      'decision',
     ]) {
-      const r = await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM ${t}`);
+      const r = await pool.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM ${t}`,
+      );
       counts[t] = r.rows[0].n;
     }
     counts['mongo: request_payloads'] = await mongo
@@ -357,9 +479,13 @@ async function main() {
     counts['neo4j: relationships'] = graph.dependsOn + graph.touches;
 
     counts['pgvector: doc_embedding'] = (
-      await pool.query<{ n: number }>('SELECT count(*)::int AS n FROM doc_embedding')
+      await pool.query<{ n: number }>(
+        'SELECT count(*)::int AS n FROM doc_embedding',
+      )
     ).rows[0].n;
-    counts['qdrant: points'] = (await qdrant.count(QDRANT_COLLECTION, { exact: true })).count;
+    counts['qdrant: points'] = (
+      await qdrant.count(QDRANT_COLLECTION, { exact: true })
+    ).count;
 
     console.table(counts);
   } catch (e) {

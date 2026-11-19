@@ -1,6 +1,7 @@
 import { EMBEDDING_DIM, EMBEDDING_MODEL, embed } from '../embeddings/embedder';
 
-const dot = (a: number[], b: number[]) => a.reduce((s, x, i) => s + x * b[i], 0);
+const dot = (a: number[], b: number[]) =>
+  a.reduce((s, x, i) => s + x * b[i], 0);
 const norm = (a: number[]) => Math.sqrt(dot(a, a));
 
 async function main() {
@@ -14,9 +15,19 @@ async function main() {
   const v = await embed(texts);
   console.timeEnd('első beágyazás (a modell betöltésével)');
 
-  console.log({ model: EMBEDDING_MODEL, dim: v[0].length, expectedDim: EMBEDDING_DIM });
-  console.log('vektor-normák:', v.map((x) => norm(x).toFixed(4)));
-  console.log('koszinusz (majdnem-duplikátum pár):', dot(v[0], v[1]).toFixed(3));
+  console.log({
+    model: EMBEDDING_MODEL,
+    dim: v[0].length,
+    expectedDim: EMBEDDING_DIM,
+  });
+  console.log(
+    'vektor-normák:',
+    v.map((x) => norm(x).toFixed(4)),
+  );
+  console.log(
+    'koszinusz (majdnem-duplikátum pár):',
+    dot(v[0], v[1]).toFixed(3),
+  );
   console.log('koszinusz (nem összefüggő):', dot(v[0], v[2]).toFixed(3));
 }
 

@@ -19,10 +19,19 @@ interface VectorDoc {
 }
 
 interface PassageRow {
-  id: string; category: string; text: string; project_id: string; is_demo: boolean;
+  id: string;
+  category: string;
+  text: string;
+  project_id: string;
+  is_demo: boolean;
 }
 interface RequestRow {
-  id: string; seq: number; category: string; title: string; project_id: string; is_demo: boolean;
+  id: string;
+  seq: number;
+  category: string;
+  title: string;
+  project_id: string;
+  is_demo: boolean;
 }
 
 const toVector = (v: number[]) => `[${v.join(',')}]`;
@@ -54,7 +63,11 @@ export async function ensureQdrantCollection(qdrant: QdrantClient) {
   }
 }
 
-async function loadDocs(pool: Pool, mongo: Db, projectIds: string[]): Promise<VectorDoc[]> {
+async function loadDocs(
+  pool: Pool,
+  mongo: Db,
+  projectIds: string[],
+): Promise<VectorDoc[]> {
   const passages = await pool.query<PassageRow>(
     `SELECT cp.id, cp.category, cp.text, c.project_id, p.is_demo
      FROM contract_passage cp
@@ -137,14 +150,25 @@ export async function syncVectors(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query('DELETE FROM doc_embedding WHERE project_id = ANY($1::uuid[])', [projectIds]);
+    await client.query(
+      'DELETE FROM doc_embedding WHERE project_id = ANY($1::uuid[])',
+      [projectIds],
+    );
     for (let i = 0; i < docs.length; i++) {
       const d = docs[i];
       await client.query(
         `INSERT INTO doc_embedding
            (id, doc_type, project_id, category, source_id, refreshed_at, embedding)
          VALUES ($1, $2, $3, $4, $5, $6, $7::vector)`,
-        [d.id, d.docType, d.projectId, d.category, d.sourceId, refreshedAt, toVector(vectors[i])],
+        [
+          d.id,
+          d.docType,
+          d.projectId,
+          d.category,
+          d.sourceId,
+          refreshedAt,
+          toVector(vectors[i]),
+        ],
       );
     }
     await client.query('COMMIT');

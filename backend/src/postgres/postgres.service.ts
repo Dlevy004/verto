@@ -12,7 +12,7 @@ export class PostgresService implements OnModuleDestroy {
       connectionString: config.getOrThrow<string>('POSTGRES_URL'),
     });
     this.pool.on('error', (e) =>
-        this.logger.error(`Idle Postgres client error: ${e.message}`),
+      this.logger.error(`Idle Postgres client error: ${e.message}`),
     );
   }
 

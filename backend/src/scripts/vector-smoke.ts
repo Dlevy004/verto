@@ -4,7 +4,8 @@ import { embed } from '../embeddings/embedder';
 import { QDRANT_COLLECTION } from '../vectors/vector-sync';
 
 async function main() {
-  const query = process.argv[2] ?? 'Customers want to pay with Apple Pay at checkout';
+  const query =
+    process.argv[2] ?? 'Customers want to pay with Apple Pay at checkout';
   const projectName = process.argv[3] ?? 'Acme';
 
   const pool = new Pool({ connectionString: process.env.POSTGRES_URL });
@@ -14,7 +15,8 @@ async function main() {
       `SELECT id, name FROM project WHERE name ILIKE $1 ORDER BY name LIMIT 1`,
       [`%${projectName}%`],
     );
-    if (!project.rows[0]) throw new Error(`Nincs ilyen projekt: ${projectName}`);
+    if (!project.rows[0])
+      throw new Error(`Nincs ilyen projekt: ${projectName}`);
     const { id: projectId, name } = project.rows[0];
     console.log(`Lekérdezés: "${query}"\nProjekt: ${name}\n`);
 
