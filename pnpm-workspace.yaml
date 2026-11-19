@@ -4,3 +4,5 @@ packages:
 allowBuilds:
   '@parcel/watcher': true
   esbuild: true
+  onnxruntime-node: true
+  protobufjs: false

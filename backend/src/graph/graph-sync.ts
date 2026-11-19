@@ -7,7 +7,9 @@ export type CypherRunner = (
 ) => Promise<unknown>;
 
 /** Egyetlen Neo4j-tranzakció: ha bármi hibázik, a korábbi gráf érintetlen marad. */
-export type CypherTransaction = <T>(work: (run: CypherRunner) => Promise<T>) => Promise<T>;
+export type CypherTransaction = <T>(
+  work: (run: CypherRunner) => Promise<T>,
+) => Promise<T>;
 
 export interface GraphSyncResult {
   modules: number;
@@ -36,7 +38,11 @@ async function readSnapshot(pool: Pool, projectIds?: string[]) {
       params,
     );
     const requests = await client.query<{
-      id: string; seq: number; project_id: string; status: string; is_demo: boolean;
+      id: string;
+      seq: number;
+      project_id: string;
+      status: string;
+      is_demo: boolean;
     }>(
       `SELECT cr.id, cr.seq, cr.project_id, cr.status::text AS status, p.is_demo
        FROM change_request cr JOIN project p ON p.id = cr.project_id
@@ -78,7 +84,9 @@ export async function syncGraph(
   await runTx(async (run) => {
     // 1) a régi másolat törlése
     if (projectIds !== undefined) {
-      await run('MATCH (n) WHERE n.project_id IN $ids DETACH DELETE n', { ids: projectIds });
+      await run('MATCH (n) WHERE n.project_id IN $ids DETACH DELETE n', {
+        ids: projectIds,
+      });
     } else {
       await run('MATCH (n) WHERE n:Module OR n:Request DETACH DELETE n');
     }

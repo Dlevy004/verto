@@ -88,7 +88,9 @@ export class HealthController {
       'CALL dbms.components() YIELD name, versions RETURN name, versions[0] AS version',
     );
     const row = r.records[0];
-    const c = await this.graph.run('SHOW CONSTRAINTS YIELD name RETURN name ORDER BY name');
+    const c = await this.graph.run(
+      'SHOW CONSTRAINTS YIELD name RETURN name ORDER BY name',
+    );
     return {
       ok: true,
       name: row.get('name'),
