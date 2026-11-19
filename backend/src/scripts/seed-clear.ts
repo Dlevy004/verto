@@ -33,5 +33,13 @@ async function main() {
 
 main().catch((e) => {
   console.error(e);
+  console.error(
+    '\nA törlés nem fejeződött be (pl. egy tár nem volt elérhető). Futtasd újra a `pnpm seed:clear`-t: idempotens, a már törölt részeket átugorja.',
+  );
+  process.exit(1);
+});
+
+main().catch((e) => {
+  console.error(e);
   process.exit(1);
 });

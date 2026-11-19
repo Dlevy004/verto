@@ -501,5 +501,13 @@ async function main() {
 
 main().catch((e) => {
   console.error(e);
+  console.error(
+    '\nA seed nem fejeződött be. A másolatok (Mongo, Neo4j, Qdrant) determinisztikusan újraépíthetők: futtasd újra a `pnpm seed`-et.',
+  );
+  process.exit(1);
+});
+
+main().catch((e) => {
+  console.error(e);
   process.exit(1);
 });
