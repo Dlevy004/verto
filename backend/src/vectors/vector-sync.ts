@@ -98,6 +98,14 @@ async function loadDocs(
     payloads.map((p) => [p.request_id as string, p.markdown_raw as string]),
   );
 
+  // az id-k előtagja jelöli a névteret: passzus = cp-/dcp-, kérés = rq-/drq-
+  // (az id-ket az app generálja, nem felhasználói bemenet)
+  for (const p of passages.rows) {
+    if (!/^d?cp-/.test(p.id)) {
+      throw new Error(`Érvénytelen passzus-id (cp-/dcp- előtag kell): ${p.id}`);
+    }
+  }
+
   const docs: VectorDoc[] = passages.rows.map((p) => ({
     id: p.id,
     docType: 'contract_passage',
