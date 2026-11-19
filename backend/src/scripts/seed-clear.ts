@@ -11,6 +11,10 @@ async function main() {
   const neo = createNeo4j();
   const qdrant = new QdrantClient({ url: process.env.QDRANT_URL! });
   const client = await pool.connect();
+
+  // egyszerre csak egy seed/clear futhat: a második megvárja az elsőt
+  await client.query('SELECT pg_advisory_lock(7311001)');
+
   try {
     await client.query('BEGIN');
     const pg = await clearDemoPostgres(client);
@@ -24,6 +28,7 @@ async function main() {
     await client.query('ROLLBACK').catch(() => undefined);
     throw e;
   } finally {
+    await client.query('SELECT pg_advisory_unlock(7311001)').catch(() => undefined);
     client.release();
     await pool.end();
     await mongo.close();
