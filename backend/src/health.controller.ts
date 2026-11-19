@@ -97,6 +97,13 @@ export class HealthController {
     };
   }
 
+  /**
+   * `GET /health/qdrant`
+   *
+   * Verifies live HTTP connectivity to Qdrant by querying its root `/` endpoint
+   * for the server version and calling `client.getCollections()` to list all
+   * currently initialized vector collections.
+   */
   @Get('qdrant')
   async qdrantHealth() {
     const info = (await (await fetch(`${this.qdrant.url}/`)).json()) as {
