@@ -8,17 +8,33 @@ async function main() {
   const mongo = new MongoClient(process.env.MONGO_URL!);
   await mongo.connect();
   const qdrant = new QdrantClient({ url: process.env.QDRANT_URL! });
+
+  const totals = { projects: 0, passages: 0, requests: 0 };
+  const failures: { project: string; error: string }[] = [];
+
   try {
-    const projects = await pool.query<{ id: string }>('SELECT id FROM project');
-    console.time('embed');
-    const result = await syncVectors(
-      pool,
-      mongo.db('verto'),
-      qdrant,
-      projects.rows.map((r) => r.id),
+    const projects = await pool.query<{ id: string; name: string }>(
+      'SELECT id, name FROM project ORDER BY name',
     );
+    console.time('embed');
+    for (const p of projects.rows) {
+      try {
+        const r = await syncVectors(pool, mongo.db('verto'), qdrant, [p.id]);
+        totals.projects++;
+        totals.passages += r.passages;
+        totals.requests += r.requests;
+      } catch (e) {
+        failures.push({ project: p.name, error: (e as Error).message });
+      }
+    }
     console.timeEnd('embed');
-    console.table(result);
+    console.table(totals);
+
+    if (failures.length > 0) {
+      console.error(`${failures.length} projekt feldolgozása hibázott (a többi rendben lefutott):`);
+      console.table(failures);
+      process.exitCode = 1;
+    }
   } finally {
     await pool.end();
     await mongo.close();
