@@ -187,15 +187,15 @@ export async function syncVectors(
     client.release();
   }
 
-  // Qdrant: a pont-id a text id-ből képzett UUID, a text id a payloadban marad
-  await qdrant.delete(QDRANT_COLLECTION, {
-    wait: true,
-    filter: { must: [{ key: 'project_id', match: { any: projectIds } }] },
-  });
+  // Qdrant: a pont-id a text id-ből képzett UUID, a text id a payloadban marad.
+  // Előbb feltöltjük az új pontokat (az id-k determinisztikusak, az upsert idempotens),
+  // és csak utána töröljük a már nem létezőket: egy hiba után a régi, teljes állapot
+  // marad, nem üres találati lista. Helyreállítás: a `pnpm embed` újrafuttatása.
+  const pointIds = docs.map((d) => uuidv5(`vector:${d.id}`));
   const BATCH = 100;
   for (let i = 0; i < docs.length; i += BATCH) {
     const points = docs.slice(i, i + BATCH).map((d, j) => ({
-      id: uuidv5(`vector:${d.id}`),
+      id: pointIds[i + j],
       vector: vectors[i + j],
       payload: {
         text_id: d.id,
@@ -209,6 +209,13 @@ export async function syncVectors(
     }));
     await qdrant.upsert(QDRANT_COLLECTION, { wait: true, points });
   }
+  await qdrant.delete(QDRANT_COLLECTION, {
+    wait: true,
+    filter: {
+      must: [{ key: 'project_id', match: { any: projectIds } }],
+      must_not: [{ has_id: pointIds }],
+    },
+  });
 
   return {
     passages: docs.filter((d) => d.docType === 'contract_passage').length,
