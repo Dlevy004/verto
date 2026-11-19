@@ -5,9 +5,17 @@ import { PostgresService } from './postgres/postgres.service';
 import { QdrantService } from './qdrant/qdrant.service';
 import { RedisService } from './redis/redis.service';
 
+/**
+ * Diagnostic health-check controller exposing per-datastore readiness endpoints
+ * under `/health/*` (Postgres, MongoDB, Redis, Neo4j, Qdrant).
+ *
+ * Registered in `AppModule` and consumes all five global database services via
+ * constructor dependency injection.
+ */
 @Controller('health')
 export class HealthController {
   constructor(
+    // inject all five global database dependencies/services for health checks
     private readonly pg: PostgresService,
     private readonly mongo: MongoService,
     private readonly redis: RedisService,
@@ -15,6 +23,15 @@ export class HealthController {
     private readonly qdrant: QdrantService,
   ) {}
 
+  /**
+   * `GET /health/postgres`
+   *
+   * Verifies live PostgreSQL connectivity via `PostgresService.query` and checks
+   * the `pg_extension` system catalog to ensure the `pgvector` (`vector`) extension
+   * initialized by `db/postgres/init.sql` is installed and active.
+   *
+   * @throws {ServiceUnavailableException} HTTP 503 if the `vector` extension is missing.
+   */
   @Get('postgres')
   async postgres() {
     const r = await this.pg.query<{ extversion: string }>(
@@ -27,6 +44,13 @@ export class HealthController {
     return { ok: true, pgvector: version };
   }
 
+  /**
+   * `GET /health/mongo`
+   *
+   * Verifies live MongoDB connectivity by sending a `ping` command to the
+   * `'verto'` database via `MongoService.db` and lists all existing collections
+   * to confirm whether `db/mongo/init.js` has initialized `request_payloads`.
+   */
   @Get('mongo')
   async mongoHealth() {
     await this.mongo.db.command({ ping: 1 });
@@ -34,15 +58,30 @@ export class HealthController {
     return { ok: true, collections: collections.map((c) => c.name) };
   }
 
+  /**
+   * `GET /health/redis`
+   *
+   * Verifies live Redis connectivity via `PING`, performs a read/write round-trip
+   * using a transient `health:test` key with a 10-second TTL (`EX 10`), and returns
+   * the remaining TTL to confirm automatic key expiration works as expected.
+   */
   @Get('redis')
   async redisHealth() {
     const pong = await this.redis.client.ping();
     await this.redis.client.set('health:test', 'ok', 'EX', 10);
     const value = await this.redis.client.get('health:test');
+    // time to live (TTL)
     const ttl = await this.redis.client.ttl('health:test');
     return { ok: true, ping: pong, roundtrip: value, ttl };
   }
 
+  /**
+   * `GET /health/neo4j`
+   *
+   * Verifies live Neo4j Bolt connectivity by querying `dbms.components()` for the
+   * running server name and version, and runs `SHOW CONSTRAINTS` to confirm that
+   * `GraphService.onModuleInit()` applied the required uniqueness constraints.
+   */
   @Get('neo4j')
   async neo4jHealth() {
     const r = await this.graph.run(
@@ -60,6 +99,13 @@ export class HealthController {
     };
   }
 
+  /**
+   * `GET /health/qdrant`
+   *
+   * Verifies live HTTP connectivity to Qdrant by querying its root `/` endpoint
+   * for the server version and calling `client.getCollections()` to list all
+   * currently initialized vector collections.
+   */
   @Get('qdrant')
   async qdrantHealth() {
     const info = (await (await fetch(`${this.qdrant.url}/`)).json()) as {

@@ -6,4 +6,4 @@ dist
 results/tmp
 *.tsbuildinfo
 coverage
-.cache
+.cache/
