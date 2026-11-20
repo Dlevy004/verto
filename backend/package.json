@@ -19,6 +19,7 @@
     "embed:smoke": "tsx --env-file=../.env src/scripts/embed-smoke.ts",
     "embed": "tsx --env-file=../.env src/scripts/embed-all.ts",
     "vector:smoke": "tsx --env-file=../.env src/scripts/vector-smoke.ts",
+    "engine:smoke": "tsx --env-file=../.env src/scripts/engine-smoke.ts",
     "lint": "oxlint --type-aware src/ test/",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch",
