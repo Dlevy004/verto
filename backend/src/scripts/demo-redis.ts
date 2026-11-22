@@ -2,8 +2,15 @@ import { QdrantClient } from '@qdrant/js-client-rest';
 import Redis from 'ioredis';
 import { MongoClient } from 'mongodb';
 import { Pool } from 'pg';
-import { decisionKey, getDecision, invalidateDecision } from '../engine/decision-cache';
-import { saveDecision } from '../engine/decision-store';
+import {
+  decisionKey,
+  fillDecisionCache,
+  getDecision,
+  invalidateDecision,
+  readGeneration,
+  toCachedDecision,
+} from '../engine/decision-cache';
+import { loadLatestDecision, saveDecision } from '../engine/decision-store';
 import { ENGINE_CONFIG } from '../engine/engine.config';
 import { triageRequest } from '../engine/triage';
 import { createNeo4j } from './neo4j-runner';
@@ -97,6 +104,20 @@ async function main() {
       { step: 'PostgreSQL now holds', source: 'postgres', verdict: changedVerdict },
       { step: 'read without invalidation', source: stale.source, verdict: stale.decision?.verdict },
       { step: 'read after DEL', source: fresh.source, verdict: fresh.decision?.verdict },
+    ]);
+
+    // 4) the fenced fill
+    console.log('\n4) A cache fill from a read that started before an invalidation:');
+    await invalidateDecision(redis, request.id);
+    const generation = await readGeneration(redis, request.id); // the reader notes the generation...
+    const oldRow = await loadLatestDecision(pool, request.id); // ...then reads PostgreSQL
+    await invalidateDecision(redis, request.id); // a writer commits and invalidates in between
+    const published = oldRow
+      ? await fillDecisionCache(redis, request.id, generation, toCachedDecision(oldRow))
+      : false;
+    console.table([
+      { check: 'late fill was published', result: published },
+      { check: 'cache key exists afterwards', result: (await redis.exists(decisionKey(request.id))) === 1 },
     ]);
   } finally {
     if (requestId) {
