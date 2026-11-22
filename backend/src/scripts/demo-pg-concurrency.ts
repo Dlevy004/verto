@@ -33,7 +33,11 @@ async function main() {
     const requests = (
       await pool.query<RequestRow>(
         `SELECT id, seq, status::text AS status, estimated_hours::float8 AS estimated_hours, updated_at
-           FROM change_request WHERE project_id = $1 ORDER BY seq LIMIT 2`,
+            FROM change_request WHERE project_id = $1
+            AND NOT EXISTS (
+              SELECT 1 FROM hours_reservation hr WHERE hr.request_id = change_request.id
+            )
+          ORDER BY seq LIMIT 2`,
         [project.id],
       )
     ).rows;
