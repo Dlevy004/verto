@@ -103,7 +103,10 @@ export async function searchDuplicatePg(
   return row ? { requestId: row.request_id, textId: row.text_id, sim: row.sim } : null;
 }
 
-/** Qdrant: top-10 jelölt, majd a Postgres szűri az időrendet és a státuszt. */
+/**
+ * Qdrant: ranked candidates are fetched page by page and checked against PostgreSQL
+ * (creation time, status) until an eligible request is found or the search is exhausted.
+ */
 export async function searchDuplicateQdrant(
   pool: Pool,
   qdrant: QdrantClient,
@@ -112,31 +115,42 @@ export async function searchDuplicateQdrant(
   excludeRequestId: string | null,
   before: Date,
 ): Promise<DuplicateHit | null> {
-  const res = await qdrant.query(QDRANT_COLLECTION, {
-    query: vec,
-    limit: 10,
-    with_payload: true,
-    filter: {
-      must: [
-        { key: 'project_id', match: { value: projectId } },
-        { key: 'doc_type', match: { value: 'past_request' } },
-      ],
-      ...(excludeRequestId
-        ? { must_not: [{ key: 'source_id', match: { value: excludeRequestId } }] }
-        : {}),
-    },
-  });
-  const candidates = res.points.map((p) => {
-    const payload = p.payload as { text_id: string; source_id: string };
-    return { textId: payload.text_id, requestId: payload.source_id, sim: p.score };
-  });
-  if (candidates.length === 0) return null;
+  const PAGE_SIZE = 10;
+  const MAX_SCANNED = 1000; // safety cap for very large corpora
+  const filter = {
+    must: [
+      { key: 'project_id', match: { value: projectId } },
+      { key: 'doc_type', match: { value: 'past_request' } },
+    ],
+    ...(excludeRequestId
+      ? { must_not: [{ key: 'source_id', match: { value: excludeRequestId } }] }
+      : {}),
+  };
 
-  const ok = await pool.query<{ id: string }>(
-    `SELECT id::text AS id FROM change_request
-     WHERE id = ANY($1::uuid[]) AND created_at < $2 AND status NOT IN ('REJECTED', 'CANCELLED')`,
-    [candidates.map((c) => c.requestId), before],
-  );
-  const allowed = new Set(ok.rows.map((r) => r.id));
-  return candidates.find((c) => allowed.has(c.requestId)) ?? null;
+  for (let offset = 0; offset < MAX_SCANNED; offset += PAGE_SIZE) {
+    const res = await qdrant.query(QDRANT_COLLECTION, {
+      query: vec,
+      limit: PAGE_SIZE,
+      offset,
+      with_payload: true,
+      filter,
+    });
+    const candidates = res.points.map((p) => {
+      const payload = p.payload as { text_id: string; source_id: string };
+      return { textId: payload.text_id, requestId: payload.source_id, sim: p.score };
+    });
+    if (candidates.length === 0) return null;
+
+    const ok = await pool.query<{ id: string }>(
+      `SELECT id::text AS id FROM change_request
+        WHERE id = ANY($1::uuid[]) AND created_at < $2 AND status NOT IN ('REJECTED', 'CANCELLED')`,
+      [candidates.map((c) => c.requestId), before],
+    );
+    const allowed = new Set(ok.rows.map((r) => r.id));
+    const hit = candidates.find((c) => allowed.has(c.requestId));
+    if (hit) return hit; // the first eligible candidate in rank order wins
+
+    if (candidates.length < PAGE_SIZE) return null; // the search is exhausted
+  }
+  return null;
 }
