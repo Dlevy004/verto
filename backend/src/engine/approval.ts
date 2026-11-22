@@ -2,6 +2,7 @@ import Redis from 'ioredis';
 import { Pool } from 'pg';
 import { invalidateDecision } from './decision-cache';
 import { INSERT_DECISION_SQL, decisionParams } from './decision-store';
+import { tryInvalidateDecision } from './decision-cache';
 
 export class RequestNotFoundError extends Error {
   constructor(readonly requestId: string) {
@@ -112,7 +113,7 @@ export async function approveRequest(pool: Pool, input: ApproveInput): Promise<A
     // 3) the manual approval overrides every engine verdict other than IN_SCOPE
     const latest = await client.query<{ verdict: string }>(
       `SELECT verdict::text AS verdict FROM decision
-        WHERE request_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        WHERE request_id = $1 ORDER BY revision DESC LIMIT 1`,
       [input.requestId],
     );
     const isOverride = (latest.rows[0]?.verdict ?? null) !== 'IN_SCOPE';
@@ -173,14 +174,24 @@ export async function approveRequest(pool: Pool, input: ApproveInput): Promise<A
 }
 
 /** Approves, then drops the cached decision of the request (after the commit). */
+export interface ApproveAndRefreshResult extends ApproveResult {
+  cacheInvalidated: boolean;
+  cacheError?: string;
+}
+
+/**
+ * Approves, then drops the cached decision of the request (after the commit).
+ * A cache failure is reported in the result, it never turns a committed approval into an error.
+ * Recovery: call invalidateDecision again; do NOT repeat the approval.
+ */
 export async function approveAndRefreshCache(
   pool: Pool,
   redis: Redis,
   input: ApproveInput,
-): Promise<ApproveResult> {
+): Promise<ApproveAndRefreshResult> {
   const result = await approveRequest(pool, input);
-  await invalidateDecision(redis, input.requestId);
+  const invalidation = await tryInvalidateDecision(redis, input.requestId);
   // Note: other open requests of the project may now exceed the remaining hours;
   // re-triaging them is a separate step (not part of this change).
-  return result;
+  return { ...result, cacheInvalidated: invalidation.ok, cacheError: invalidation.error };
 }
