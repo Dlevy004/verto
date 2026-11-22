@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import { clearDemoExternal, clearDemoPostgres } from './clear-demo';
 import { createNeo4j } from './neo4j-runner';
 import { QdrantClient } from '@qdrant/js-client-rest';
+import Redis from 'ioredis';
 
 async function main() {
   const pool = new Pool({ connectionString: process.env.POSTGRES_URL });
@@ -10,6 +11,7 @@ async function main() {
   await mongo.connect();
   const neo = createNeo4j();
   const qdrant = new QdrantClient({ url: process.env.QDRANT_URL! });
+  const redis = new Redis(process.env.REDIS_URL!);
   const client = await pool.connect();
 
   // egyszerre csak egy seed/clear futhat: a második megvárja az elsőt
@@ -20,7 +22,7 @@ async function main() {
     const pg = await clearDemoPostgres(client);
     await client.query('COMMIT');
 
-    const ext = await clearDemoExternal(mongo.db('verto'), neo.run, qdrant);
+    const ext = await clearDemoExternal(mongo.db('verto'), neo.run, qdrant, redis)
     console.log(
       `Törölve: ${pg.projects} demó projekt, ${pg.users} demó felhasználó, ${ext.payloads} Mongo-payload, a demó Neo4j-csúcsok (és minden hozzájuk tartozó Postgres-adat).`,
     );
@@ -33,6 +35,7 @@ async function main() {
     await pool.end();
     await mongo.close();
     await neo.driver.close();
+    redis.disconnect();
   }
 }
 
@@ -41,10 +44,5 @@ main().catch((e) => {
   console.error(
     '\nA törlés nem fejeződött be (pl. egy tár nem volt elérhető). Futtasd újra a `pnpm seed:clear`-t: idempotens, a már törölt részeket átugorja.',
   );
-  process.exit(1);
-});
-
-main().catch((e) => {
-  console.error(e);
   process.exit(1);
 });
