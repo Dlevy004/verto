@@ -17,7 +17,7 @@ async function main() {
   const redis = new Redis(process.env.REDIS_URL!);
   const neo = createNeo4j();
   let requestId: string | null = null;
-  let startedAt: Date | null = null;
+  const demoDecisionIds: string[] = [];
 
   try {
     const first = await pool.query<{ id: string; seq: number; title: string }>(
@@ -29,7 +29,6 @@ async function main() {
     const request = first.rows[0];
     if (!request) throw new Error('No demo request found. Run `pnpm seed` first.');
     requestId = request.id;
-    startedAt = (await pool.query<{ t: Date }>('SELECT clock_timestamp() AS t')).rows[0].t;
     console.log(`Request #${request.seq}: ${request.title}`);
 
     const deps = {
@@ -47,6 +46,9 @@ async function main() {
       triageRequest(deps, request.id),
       triageRequest(deps, request.id),
     ]);
+    for (const run of runs) {
+      if (run.status === 'decided') demoDecisionIds.push(run.decisionId);
+    }
     console.table(
       runs.map((r, i) => ({
         run: i + 1,
@@ -77,13 +79,14 @@ async function main() {
     const changedVerdict = before.verdict === 'SCOPE_CREEP' ? 'IN_SCOPE' : 'SCOPE_CREEP';
 
     // simulates an update path that writes a new decision but forgets to invalidate the cache
-    await saveDecision(pool, {
+    const demoSave = await saveDecision(pool, {
       requestId: request.id,
       verdict: changedVerdict,
       reasonCodes: ['DEMO_CHANGE'],
       signals: { demo: true },
       decidedBy: 'DEMO',
     });
+    demoDecisionIds.push(demoSave.id);
     const stale = await getDecision(redis, pool, request.id);
 
     // the fix: delete the key in the same update path (after the commit)
@@ -96,11 +99,8 @@ async function main() {
       { step: 'read after DEL', source: fresh.source, verdict: fresh.decision?.verdict },
     ]);
   } finally {
-    if (requestId && startedAt) {
-      await pool.query('DELETE FROM decision WHERE request_id = $1 AND created_at >= $2', [
-        requestId,
-        startedAt,
-      ]);
+    if (requestId) {
+      await pool.query('DELETE FROM decision WHERE id = ANY($1)', [demoDecisionIds]);
       await invalidateDecision(redis, requestId);
       console.log('\nDemo data restored.');
     }
