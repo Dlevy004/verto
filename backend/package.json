@@ -20,6 +20,8 @@
     "embed": "tsx --env-file=../.env src/scripts/embed-all.ts",
     "vector:smoke": "tsx --env-file=../.env src/scripts/vector-smoke.ts",
     "engine:smoke": "tsx --env-file=../.env src/scripts/engine-smoke.ts",
+    "demo:pg-concurrency": "tsx --env-file=../.env src/scripts/demo-pg-concurrency.ts",
+    "demo:redis": "tsx --env-file=../.env src/scripts/demo-redis.ts",
     "lint": "oxlint --type-aware src/ test/",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch",
