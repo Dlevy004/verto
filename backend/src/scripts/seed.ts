@@ -11,6 +11,7 @@ import { syncGraph } from '../graph/graph-sync';
 import { createNeo4j } from './neo4j-runner';
 import { QdrantClient } from '@qdrant/js-client-rest';
 import { QDRANT_COLLECTION, syncVectors } from '../vectors/vector-sync';
+import Redis from 'ioredis';
 
 faker.seed(42);
 
@@ -129,6 +130,7 @@ async function main() {
   await mongo.connect();
   const neo = createNeo4j();
   const qdrant = new QdrantClient({ url: process.env.QDRANT_URL! });
+  const redis = new Redis(process.env.REDIS_URL!);
   const client = await pool.connect();
 
   // egyszerre csak egy seed/clear futhat: a második megvárja az elsőt
@@ -432,6 +434,7 @@ async function main() {
       mongo.db('verto'),
       neo.run,
       qdrant,
+      redis
     );
     console.log(
       `Előző demó törölve (másolatok): ${external.payloads} Mongo-payload`,
@@ -501,6 +504,7 @@ async function main() {
     await pool.end();
     await mongo.close();
     await neo.driver.close();
+    redis.disconnect();
   }
 }
 

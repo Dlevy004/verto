@@ -3,6 +3,9 @@ import { PoolClient } from 'pg';
 import { CypherRunner } from '../graph/graph-sync';
 import { QdrantClient } from '@qdrant/js-client-rest';
 import { QDRANT_COLLECTION } from '../vectors/vector-sync';
+import Redis from 'ioredis';
+import { clearDecisionCache } from '../engine/decision-cache';
+
 
 /** A Postgres-rész (a forrás). Tranzakción belül hívandó. */
 export async function clearDemoPostgres(client: PoolClient) {
@@ -27,18 +30,17 @@ export async function clearDemoPostgres(client: PoolClient) {
   return { projects: projects.rowCount ?? 0, users: users.rowCount ?? 0 };
 }
 
-/** A másolatok (Mongo, Neo4j, Qdrant). Csak a Postgres commit UTÁN hívandó. */
+/** Copies (Mongo, Neo4j, Qdrant, Redis). Call only AFTER the PostgreSQL commit. */
 export async function clearDemoExternal(
   mongo: Db,
   run: CypherRunner,
   qdrant: QdrantClient,
+  redis: Redis,
 ) {
-  const payloads = await mongo
-    .collection('request_payloads')
-    .deleteMany({ is_demo: true });
+  const payloads = await mongo.collection('request_payloads').deleteMany({ is_demo: true });
   await run('MATCH (n) WHERE n.is_demo = true DETACH DELETE n');
 
-  // a pgvector-sorok a projekt törlésekor kaszkáddal törlődtek, a Qdrantban jelölő alapján törlünk
+  // pgvector rows were removed by the project cascade, Qdrant points are removed by the flag
   const { collections } = await qdrant.getCollections();
   if (collections.some((c) => c.name === QDRANT_COLLECTION)) {
     await qdrant.delete(QDRANT_COLLECTION, {
@@ -46,7 +48,9 @@ export async function clearDemoExternal(
       filter: { must: [{ key: 'is_demo', match: { value: true } }] },
     });
   }
-  // TODO (később): Redis, ugyanígy jelölő alapján
 
-  return { payloads: payloads.deletedCount };
+  // cached decisions are derived data: dropping all of them is always safe
+  const cachedDecisions = await clearDecisionCache(redis);
+
+  return { payloads: payloads.deletedCount, cachedDecisions };
 }
