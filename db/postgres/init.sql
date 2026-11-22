@@ -150,6 +150,7 @@ CREATE INDEX ON request_module (module_id);
 CREATE TABLE decision (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   request_id   UUID NOT NULL REFERENCES change_request(id) ON DELETE CASCADE,
+  revision     INTEGER NOT NULL DEFAULT 1,
   verdict      verdict_status NOT NULL,
   reason_codes TEXT[] NOT NULL,
   -- the signals that led to the decision, e.g. "module A depends on module B, which is out of scope"
@@ -159,9 +160,9 @@ CREATE TABLE decision (
   decided_by   TEXT NOT NULL,
   -- if true, the decision was made by a user overriding the system's recommendation
   is_override  BOOLEAN NOT NULL DEFAULT false,
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (request_id, revision)
 );
-CREATE INDEX ON decision (request_id, created_at DESC);
 
 -- one request only has one budget reservation, but a budget can have many requests reserved against it
 CREATE TABLE hours_reservation (

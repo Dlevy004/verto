@@ -16,7 +16,9 @@
     "seed:clear": "pnpm --filter backend seed:clear",
     "embed": "pnpm --filter backend embed",
     "vector:smoke": "pnpm --filter backend vector:smoke",
-    "engine:smoke": "pnpm --filter backend engine:smoke"
+    "engine:smoke": "pnpm --filter backend engine:smoke",
+    "demo:pg-concurrency": "pnpm --filter backend demo:pg-concurrency",
+    "demo:redis": "pnpm --filter backend demo:redis"
   },
   "keywords": [],
   "author": "",
