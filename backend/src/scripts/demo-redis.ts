@@ -8,6 +8,7 @@ import { ENGINE_CONFIG } from '../engine/engine.config';
 import { triageRequest } from '../engine/triage';
 import { createNeo4j } from './neo4j-runner';
 
+
 async function main() {
   const pool = new Pool({ connectionString: process.env.POSTGRES_URL });
   const mongo = new MongoClient(process.env.MONGO_URL!);
