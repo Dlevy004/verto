@@ -1,7 +1,9 @@
 import { DecisionConfig } from './decide';
 
-// Kezdő értékek: a hangolás ELŐTTI futás számait ezekkel mérjük, és elmentjük.
-// A thetaDup a smoke-teszt alapján 0.75 (egy parafrázis-pár koszinusza ~0.78 volt).
+/**
+ * Baseline decision engine parameters prior to empirical threshold tuning.
+ * `thetaDup` is initialized at `0.75` based on smoke-test paraphrase cosine scores (~0.78).
+ */
 export const ENGINE_CONFIG: DecisionConfig = {
   thetaScope: 0.5,
   thetaDup: 0.75,
