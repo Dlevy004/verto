@@ -20,7 +20,10 @@ export interface DuplicateHit {
 
 const toVector = (v: number[]) => `[${v.join(',')}]`;
 
-/** pgvector: a legközelebbi szerződés-passzusok egyetlen SQL-ben, joinolva a passzus-táblával. */
+/**
+ * Queries PostgreSQL (`pgvector`) for the top-`k` contract passages closest to `vec`,
+ * joining `contract_passage` metadata in a single SQL statement.
+ */
 export async function searchPassagesPg(
   pool: Pool,
   vec: number[],
