@@ -9,30 +9,36 @@ export type ReasonCode =
   | 'FROZEN_MODULES'
   | 'IN_SCOPE_OK';
 
+/** Tunable thresholds and effort estimation parameters for the decision engine. */
 export interface DecisionConfig {
-  thetaScope: number; // ennél kisebb hasonlóság a szerződéssel: szerződésen kívüli
-  thetaDup: number; // ennél nagyobb hasonlóság egy korábbi kéréssel: duplikátum
-  topK: number; // hány passzust kérünk a vektorkeresésből
+  /** Minimum cosine similarity to a contract passage required to stay in scope. */
+  thetaScope: number;
+  /** Minimum cosine similarity to a prior active request to classify as a duplicate. */
+  thetaDup: number;
+  /** Number of nearest contract passages retrieved during semantic search. */
+  topK: number;
+  /** Additional effort hours added per directly or transitively affected module. */
   hoursPerModule: number;
+  /** Baseline effort hours per request category before module impact. */
   baseHours: Record<RequestType, number>;
 }
 
-/** Az öt tár jelzései egy kéréshez. */
+/** Normalized polyglot signals aggregated from all persistence stores for a single request. */
 export interface DecisionSignals {
   type: RequestType;
-  // vektortár
+  // Vector store signals (pgvector / Qdrant)
   scopeSim: number | null;
   scopePassageId: string | null;
   scopeKind: 'INCLUDED' | 'EXCLUDED' | null;
   dupSim: number | null;
   dupRequestId: string | null;
-  // Neo4j
+  // Graph store signals (Neo4j)
   affectedModules: number;
   blockers: number;
-  // Postgres
+  // Relational store signals (PostgreSQL)
   estHours: number;
   remainingHours: number;
-  // Mongo
+  // Document store signals (MongoDB)
   regressionOfDelivered: boolean;
 }
 
@@ -41,7 +47,10 @@ export interface DecisionResult {
   reasonCodes: ReasonCode[];
 }
 
-/** Becsült órák: alap + modulonként. Félórás lépésre kerekítve. */
+/**
+ * Estimates engineering effort in hours (`baseHours[type] + hoursPerModule * affectedModules`),
+ * rounded to the nearest 0.5-hour increment.
+ */
 export function estimateHours(
   type: RequestType,
   affectedModules: number,
@@ -51,19 +60,22 @@ export function estimateHours(
   return Math.round(raw * 2) / 2;
 }
 
-/** A szabályok sorrendben, az első illeszkedő nyer. */
+/**
+ * Evaluates a change request deterministically against ordered business rules.
+ * Rules are applied sequentially; the first matching rule determines the outcome.
+ */
 export function decide(s: DecisionSignals, cfg: DecisionConfig): DecisionResult {
-  // 1) duplikátum
+  // 1) Duplicate check takes highest precedence
   if (s.dupSim !== null && s.dupSim >= cfg.thetaDup) {
     return { verdict: 'REJECTED', reasonCodes: ['DUPLICATE'] };
   }
 
-  // 2) a már átadott funkció hibája garanciális, nem terheli a keretet
+  // 2) Regressions on already delivered functionality are covered under warranty
   if (s.type === 'BUG' && s.regressionOfDelivered) {
     return { verdict: 'IN_SCOPE', reasonCodes: ['WARRANTY_BUG'] };
   }
 
-  // 3) a szerződéshez való viszony
+  // 3) Contract alignment: low similarity or explicit exclusion indicates scope creep
   if (s.scopeSim === null || s.scopeSim < cfg.thetaScope) {
     return { verdict: 'SCOPE_CREEP', reasonCodes: ['OUT_OF_SCOPE'] };
   }
@@ -71,16 +83,16 @@ export function decide(s: DecisionSignals, cfg: DecisionConfig): DecisionResult 
     return { verdict: 'SCOPE_CREEP', reasonCodes: ['EXCLUDED_BY_CONTRACT'] };
   }
 
-  // 4) óra-keret
+  // 4) Monthly retainer capacity check
   if (s.estHours > s.remainingHours) {
     return { verdict: 'SCOPE_CREEP', reasonCodes: ['OVER_RETAINER'] };
   }
 
-  // 5) befagyasztott modulok
+  // 5) Dependency impact on frozen modules requires manual stakeholder alignment
   if (s.blockers > 0) {
     return { verdict: 'REQUIRES_ALIGNMENT', reasonCodes: ['FROZEN_MODULES'] };
   }
 
-  // 6) minden rendben
+  // 6) All checks passed
   return { verdict: 'IN_SCOPE', reasonCodes: ['IN_SCOPE_OK'] };
 }

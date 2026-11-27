@@ -20,7 +20,10 @@ export interface DuplicateHit {
 
 const toVector = (v: number[]) => `[${v.join(',')}]`;
 
-/** pgvector: a legközelebbi szerződés-passzusok egyetlen SQL-ben, joinolva a passzus-táblával. */
+/**
+ * Queries PostgreSQL (`pgvector`) for the top-`k` (default: 5) contract passages closest to `vec`,
+ * joining `contract_passage` metadata (its description and category like INCLUDED or EXCLUDED) in a single SQL statement.
+ */
 export async function searchPassagesPg(
   pool: Pool,
   vec: number[],
@@ -39,7 +42,11 @@ export async function searchPassagesPg(
   return r.rows;
 }
 
-/** Qdrant: a szűrt keresés után egy második Postgres-lekérdezés hozza a passzusok adatait. */
+/**
+ * Queries Qdrant for the top-`k` contract passages closest to `vec`,
+ * then hydrates passage metadata (`kind`, `category`, `text`) from PostgreSQL
+ * while preserving Qdrant's similarity rank order.
+ */
 export async function searchPassagesQdrant(
   pool: Pool,
   qdrant: QdrantClient,
@@ -76,8 +83,9 @@ export async function searchPassagesQdrant(
 }
 
 /**
- * pgvector: a legközelebbi korábbi kérés ugyanabban a projektben.
- * Kizárjuk a kérést magát, a később keletkezetteket és az elutasított/visszavont kéréseket.
+ * Queries PostgreSQL (`pgvector`) for the closest prior change request in the same project.
+ * Excludes the request itself, requests created at or after `before` (preventing future
+ * leakage during historical replay), and `REJECTED` or `CANCELLED` requests.
  */
 export async function searchDuplicatePg(
   pool: Pool,
@@ -104,8 +112,9 @@ export async function searchDuplicatePg(
 }
 
 /**
- * Qdrant: ranked candidates are fetched page by page and checked against PostgreSQL
- * (creation time, status) until an eligible request is found or the search is exhausted.
+ * Queries Qdrant for the closest prior change request by scanning ranked candidates
+ * page-by-page (`PAGE_SIZE = 10`) and validating creation timestamp and active status
+ * against PostgreSQL until the first eligible match is found.
  */
 export async function searchDuplicateQdrant(
   pool: Pool,

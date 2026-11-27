@@ -17,40 +17,51 @@ import {
   estimateHours,
 } from './decide';
 
-/** Olvasó Cypher-hívás: a sorokat sima objektumként adja vissza. */
+/** Read-only Cypher query runner returning result rows as plain record objects. */
 export type CypherRead = (
   cypher: string,
   params?: Record<string, unknown>,
 ) => Promise<Record<string, unknown>[]>;
 
+/** Normalized request payload required to evaluate a persisted or draft change request. */
 export interface RequestInput {
-  requestId?: string; // meglévő kérésnél: a saját vektorát kizárjuk a duplikátum-keresésből
+  /** Present for persisted requests; excluded from duplicate self-matching. */
+  requestId?: string;
   projectId: string;
   type: RequestType;
   title: string;
   body: string;
   moduleIds: string[];
   createdAt: Date;
-  regressionOfDelivered: boolean; // a Mongo-payloadból
+  /** Extracted from MongoDB `request_payloads.fields.regression_of_delivered`. */
+  regressionOfDelivered: boolean;
 }
 
+/** External clients and configuration injected into `evaluateRequest`. */
 export interface EngineDeps {
   pool: Pool;
   qdrant: QdrantClient;
   read: CypherRead;
   config: DecisionConfig;
+  /** Selects which vector store drives the decision (`pgvector` default); the other runs in shadow mode. */
   primaryVector?: 'pgvector' | 'qdrant';
 }
 
+/** Complete evaluation output combining the verdict, normalized signals, and diagnostic breakdown. */
 export interface Evaluation {
   result: DecisionResult;
   signals: DecisionSignals;
-  detail: Record<string, unknown>; // az Inspector mátrixához és a decision.signals JSONB-hez
+  /** Detailed per-store breakdown persisted to `decision.signals` JSONB and rendered in the Inspector UI. */
+  detail: Record<string, unknown>;
 }
 
+/** Rounds floating-point similarity scores to 4 decimal places for diagnostic output. */
 const r4 = (n: number) => Math.round(n * 1e4) / 1e4;
 
-/** Egy meglévő kérés bemenete a Postgresből és a Mongóból. */
+/**
+ * Loads an existing change request's relational metadata from PostgreSQL
+ * and raw Markdown / custom fields from MongoDB into a `RequestInput`.
+ */
 export async function loadRequestInput(
   pool: Pool,
   mongo: Db,
@@ -86,13 +97,16 @@ export async function loadRequestInput(
   };
 }
 
-/** A jelzések összegyűjtése az öt tárból (Redis nélkül), majd a döntés. */
+/**
+ * Collects semantic, graph, budget, and document signals in parallel across
+ * PostgreSQL, Qdrant, and Neo4j (excluding Redis), then evaluates the rule chain.
+ */
 export async function evaluateRequest(deps: EngineDeps, input: RequestInput): Promise<Evaluation> {
   const { pool, qdrant, read, config } = deps;
   const primary = deps.primaryVector ?? 'pgvector';
   const excludeId = input.requestId ?? null;
 
-  // ugyanaz a szövegformátum, mint a vektorok építésekor (vector-sync.ts)
+  // Use the exact text concatenation format produced during indexing (`vector-sync.ts`)
   const [vec] = await embed([`${input.title}\n${input.body}`]);
 
   const [passagesPg, passagesQd, dupPg, dupQd, graphRows, budgetRows] = await Promise.all([
@@ -100,7 +114,7 @@ export async function evaluateRequest(deps: EngineDeps, input: RequestInput): Pr
     searchPassagesQdrant(pool, qdrant, vec, input.projectId, config.topK),
     searchDuplicatePg(pool, vec, input.projectId, excludeId, input.createdAt),
     searchDuplicateQdrant(pool, qdrant, vec, input.projectId, excludeId, input.createdAt),
-    // Neo4j: az érintett modulok és minden függőjük (max. 4 lépés), frozen jelzéssel
+    // Neo4j: directly touched modules (0 hops) and upstream dependents (up to 4 hops) with frozen flags
     read(
       `UNWIND $ids AS mid
        MATCH (m:Module {id: mid})
@@ -108,7 +122,7 @@ export async function evaluateRequest(deps: EngineDeps, input: RequestInput): Pr
        RETURN DISTINCT dep.id AS id, dep.name AS name, dep.frozen AS frozen`,
       { ids: input.moduleIds },
     ),
-    // Postgres: az aktuális havi óra-keret és a verziója
+    // PostgreSQL: current calendar month retainer balance and optimistic-lock version
     pool.query<{ id: string; remaining_hours: number; version: number }>(
       `SELECT id, remaining_hours::float8 AS remaining_hours, version
        FROM retainer_budget
